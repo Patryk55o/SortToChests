@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "chestsort",
+  "version": "1.0.0",
+  "name": "chestsort",
+  "icon": "image.png",
+  "description": "Client-side mod to dump inventory items into the nearest container.",
+  "authors": ["chestsort"],
+  "license": "All Rights Reserved",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.chestsort.mod.ChestSortClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.18.1",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
