@@ -1,6 +1,6 @@
 {
   "key.chestsort.blacklist": "Dump to Container",
-  "category.chestsort.general": "ChestSort",
+  "key.category.chestsort.general": "ChestSort",
   "screen.chestsort.blacklist": "ChestSort Blacklist",
   "screen.chestsort.blacklist.hint": "Click items to toggle blacklist",
   "screen.chestsort.blacklisted": "Blacklisted - will NOT be dumped",
