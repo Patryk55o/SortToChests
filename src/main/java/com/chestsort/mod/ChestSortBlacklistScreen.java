@@ -39,9 +39,9 @@ public class ChestSortBlacklistScreen extends Screen {
     public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
         super.extractRenderState(graphics, mouseX, mouseY, delta);
 
-        graphics.text(this.font, this.title, this.width / 2, 20, 0xFFFFFFFF, true);
-        graphics.text(this.font, Component.translatable("screen.chestsort.blacklist.hint"),
-                this.width / 2, 35, 0xFFAAAAAA, true);
+        graphics.centeredText(this.font, this.title, this.width / 2, 20, 0xFFFFFFFF);
+        graphics.centeredText(this.font, Component.translatable("screen.chestsort.blacklist.hint"),
+                this.width / 2, 35, 0xFFAAAAAA);
 
         int gridWidth = COLUMNS * SLOT_SIZE;
         int gridStartX = (this.width - gridWidth) / 2;
@@ -79,7 +79,7 @@ public class ChestSortBlacklistScreen extends Screen {
                 } else {
                     tooltip.add(Component.translatable("screen.chestsort.click_to_blacklist").withStyle(ChatFormatting.GRAY));
                 }
-                graphics.setTooltipForNextFrame(this.font, tooltip, mouseX, mouseY);
+                graphics.setComponentTooltipForNextFrame(this.font, tooltip, mouseX, mouseY);
             }
         }
     }
