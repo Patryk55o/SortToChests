@@ -63,7 +63,7 @@ public class ChestSortClient implements ClientModInitializer {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (blacklistKeyMapping.consumeClick()) {
-                client.execute(() -> client.gui.setScreen(new ChestSortBlacklistScreen(client.gui.screen())));
+                client.execute(() -> client.setScreen(new ChestSortBlacklistScreen(client.screen)));
             }
 
             if (state == SortState.IDLE) return;
@@ -75,7 +75,7 @@ public class ChestSortClient implements ClientModInitializer {
 
             switch (state) {
                 case OPENING -> {
-                    if (client.gui.screen() instanceof AbstractContainerScreen<?>) {
+                    if (client.screen instanceof AbstractContainerScreen<?>) {
                         dumpInventoryToContainer(client);
                         state = SortState.CLOSING;
                         sortTickDelay = 3;
