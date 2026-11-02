@@ -1,14 +1,14 @@
 package com.chestsort.mod;
 
+import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.client.input.InputConstants;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -24,7 +24,6 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,16 +51,19 @@ public class ChestSortClient implements ClientModInitializer {
     public void onInitializeClient() {
         LOGGER.info("ChestSort client initialized");
 
+        KeyMapping.Category category = KeyMapping.Category.register(
+                Identifier.fromNamespaceAndPath("chestsort", "general")
+        );
         blacklistKeyMapping = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.chestsort.blacklist",
                 InputConstants.Type.KEYSYM,
-                GLFW.GLFW_KEY_X,
-                KeyMapping.Category.create(Identifier.fromNamespaceAndPath("chestsort", "general"))
+                InputConstants.KEY_X,
+                category
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (blacklistKeyMapping.consumeClick()) {
-                client.execute(() -> client.setScreen(new ChestSortBlacklistScreen(client.screen)));
+                client.execute(() -> client.gui.setScreen(new ChestSortBlacklistScreen(client.gui.screen())));
             }
 
             if (state == SortState.IDLE) return;
@@ -73,7 +75,7 @@ public class ChestSortClient implements ClientModInitializer {
 
             switch (state) {
                 case OPENING -> {
-                    if (client.screen instanceof AbstractContainerScreen<?>) {
+                    if (client.gui.screen() instanceof AbstractContainerScreen<?>) {
                         dumpInventoryToContainer(client);
                         state = SortState.CLOSING;
                         sortTickDelay = 3;
