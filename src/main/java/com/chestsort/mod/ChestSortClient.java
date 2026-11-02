@@ -4,25 +4,26 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyMappingHelper;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.ChestBlockEntity;
+import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screen.ingame.AbstractContainerScreen;
-import net.minecraft.client.option.KeyMapping;
-import net.minecraft.client.util.InputUtil;
-import net.minecraft.entity.player.Player;
-import net.minecraft.entity.player.Inventory;
-import net.minecraft.screen.AbstractContainerMenu;
-import net.minecraft.screen.slot.Slot;
-import net.minecraft.screen.slot.ClickType;
-import net.minecraft.text.Component;
-import net.minecraft.util.InteractionHand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3;
-import net.minecraft.world.Level;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.input.InputConstants;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,14 +38,12 @@ public class ChestSortClient implements ClientModInitializer {
 
     private static final Random RANDOM = new Random();
 
-    // States
-    private enum SortState { IDLE, OPENING, DUMPING, CLOSING, CHECKING }
+    private enum SortState { IDLE, OPENING, CLOSING, CHECKING }
 
     private static List<BlockPos> pendingChests = new ArrayList<>();
     private static int sortTickDelay = 0;
     private static SortState state = SortState.IDLE;
 
-    // 15-25 ticks (0.75-1.25s) between chests
     private static int randomDelay() {
         return 15 + RANDOM.nextInt(10);
     }
@@ -55,16 +54,14 @@ public class ChestSortClient implements ClientModInitializer {
 
         blacklistKeyMapping = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.chestsort.blacklist",
-                InputUtil.Type.KEYSYM,
+                InputConstants.Type.KEYSYM,
                 GLFW.GLFW_KEY_X,
-                KeyMapping.Category.create(net.minecraft.util.ResourceLocation.of("chestsort", "general"))
+                KeyMapping.Category.create(Identifier.fromNamespaceAndPath("chestsort", "general"))
         ));
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (blacklistKeyMapping.wasPressed()) {
-                client.execute(() ->
-                    client.setScreen(new ChestSortBlacklistScreen(client.currentScreen))
-                );
+            if (blacklistKeyMapping.consumeClick()) {
+                client.execute(() -> client.setScreen(new ChestSortBlacklistScreen(client.screen)));
             }
 
             if (state == SortState.IDLE) return;
@@ -76,35 +73,30 @@ public class ChestSortClient implements ClientModInitializer {
 
             switch (state) {
                 case OPENING -> {
-                    // Waiting for chest screen to appear
-                    if (client.currentScreen instanceof AbstractContainerScreen<?>) {
-                        // Screen is open — dump items
+                    if (client.screen instanceof AbstractContainerScreen<?>) {
                         dumpInventoryToContainer(client);
                         state = SortState.CLOSING;
-                        sortTickDelay = 3; // short wait before closing
+                        sortTickDelay = 3;
                     } else {
-                        // Chest didn't open, skip
                         LOGGER.info("Chest didn't open, skipping");
                         state = SortState.CHECKING;
-                        sortTickDelay = 0;
                     }
                 }
                 case CLOSING -> {
-                    // Close the chest
-                    if (client.player != null) client.player.closeAbstractContainerScreen();
+                    if (client.player != null) client.player.closeContainer();
                     state = SortState.CHECKING;
-                    sortTickDelay = 5; // wait 5 ticks for server to confirm inventory state
+                    sortTickDelay = 5;
                 }
                 case CHECKING -> {
-                    // Now the inventory is settled — check if we still have items
                     if (!hasNonBlacklistedItems(client)) {
                         state = SortState.IDLE;
                         pendingChests.clear();
-                        if (client.player != null)
-                            client.player.sendMessage(Component.literal("§aChestSort: Inventory empty, done!"), true);
+                        if (client.player != null) {
+                            client.player.displayClientMessage(Component.literal("§aChestSort: Inventory empty, done!"), true);
+                        }
                         return;
                     }
-                    // Still has items — open next chest
+
                     if (!pendingChests.isEmpty()) {
                         BlockPos next = pendingChests.remove(0);
                         openChest(client, next);
@@ -112,83 +104,81 @@ public class ChestSortClient implements ClientModInitializer {
                         sortTickDelay = randomDelay();
                     } else {
                         state = SortState.IDLE;
-                        if (client.player != null)
-                            client.player.sendMessage(Component.literal("§eChestSort: No more chests nearby, done!"), true);
+                        if (client.player != null) {
+                            client.player.displayClientMessage(Component.literal("§eChestSort: No more chests nearby, done!"), true);
+                        }
                     }
                 }
-                default -> {}
+                default -> { }
             }
         });
 
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
-            dispatcher.register(ClientCommands.literal("cchestsort")
-                    .executes(context -> {
-                        Minecraft client = Minecraft.getInstance();
-                        client.execute(() -> startNearbySorting(client));
-                        return 1;
-                    }));
-        });
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
+                dispatcher.register(ClientCommands.literal("cchestsort")
+                        .executes(context -> {
+                            Minecraft client = Minecraft.getInstance();
+                            client.execute(() -> startNearbySorting(client));
+                            return 1;
+                        })));
     }
 
     private static void startNearbySorting(Minecraft client) {
-        if (client.player == null || client.world == null) return;
+        if (client.player == null || client.level == null) return;
 
         if (state != SortState.IDLE) {
-            client.player.sendMessage(Component.literal("§eChestSort: Already sorting, please wait."), true);
+            client.player.displayClientMessage(Component.literal("§eChestSort: Already sorting, please wait."), true);
             return;
         }
 
         if (!hasNonBlacklistedItems(client)) {
-            client.player.sendMessage(Component.literal("§eChestSort: Nothing to sort!"), true);
+            client.player.displayClientMessage(Component.literal("§eChestSort: Nothing to sort!"), true);
             return;
         }
 
         List<BlockPos> chests = findNearbyChests(client, 5);
         if (chests.isEmpty()) {
-            client.player.sendMessage(Component.literal("§eChestSort: No chests found nearby."), true);
+            client.player.displayClientMessage(Component.literal("§eChestSort: No chests found nearby."), true);
             return;
         }
 
-        client.player.sendMessage(Component.literal("§aChestSort: Found " + chests.size() + " chest(s), sorting..."), true);
-
+        client.player.displayClientMessage(Component.literal("§aChestSort: Found " + chests.size() + " chest(s), sorting..."), true);
         pendingChests = new ArrayList<>(chests);
 
-        // Open first chest immediately
         BlockPos first = pendingChests.remove(0);
         openChest(client, first);
         state = SortState.OPENING;
-        sortTickDelay = 10; // wait for screen to load
+        sortTickDelay = 10;
     }
 
     private static List<BlockPos> findNearbyChests(Minecraft client, int radius) {
         List<BlockPos> found = new ArrayList<>();
-        Level world = client.world;
-        BlockPos playerPos = client.player.getBlockPos();
+        Level level = client.level;
+        BlockPos playerPos = client.player.blockPosition();
 
-        for (BlockPos pos : BlockPos.iterate(
-                playerPos.add(-radius, -radius, -radius),
-                playerPos.add(radius, radius, radius))) {
-            BlockEntity be = world.getBlockEntity(pos);
-            if (be instanceof ChestBlockEntity) {
-                found.add(pos.toImmutable());
+        for (BlockPos pos : BlockPos.betweenClosed(
+                playerPos.offset(-radius, -radius, -radius),
+                playerPos.offset(radius, radius, radius))) {
+            BlockEntity blockEntity = level.getBlockEntity(pos);
+            if (blockEntity instanceof ChestBlockEntity) {
+                found.add(pos.immutable());
             }
         }
         return found;
     }
 
     private static void openChest(Minecraft client, BlockPos pos) {
-        if (client.player == null || client.interactionManager == null) return;
-        Vec3 hitVec = Vec3.ofCenter(pos);
+        if (client.player == null || client.gameMode == null) return;
+        Vec3 hitVec = Vec3.atCenterOf(pos);
         BlockHitResult hitResult = new BlockHitResult(hitVec, Direction.UP, pos, false);
-        client.interactionManager.interactBlock(client.player, InteractionHand.MAIN_HAND, hitResult);
+        client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hitResult);
     }
 
     private static boolean hasNonBlacklistedItems(Minecraft client) {
         if (client.player == null) return false;
         BlacklistManager blacklist = BlacklistManager.getInstance();
-        Inventory inv = client.player.getInventory();
+        Inventory inventory = client.player.getInventory();
         for (int i = 0; i <= 35; i++) {
-            var stack = inv.getStack(i);
+            var stack = inventory.getItem(i);
             if (!stack.isEmpty() && !blacklist.isBlacklisted(stack.getItem())) {
                 return true;
             }
@@ -197,22 +187,23 @@ public class ChestSortClient implements ClientModInitializer {
     }
 
     public static void dumpInventoryToContainer(Minecraft client) {
-        if (client.player == null || client.interactionManager == null) return;
+        if (client.player == null || client.gameMode == null) return;
 
-        AbstractContainerMenu handler = client.player.currentAbstractContainerMenu;
+        AbstractContainerMenu menu = client.player.containerMenu;
         Player player = client.player;
+        Inventory inventory = player.getInventory();
         BlacklistManager blacklist = BlacklistManager.getInstance();
 
-        for (Slot slot : handler.slots) {
-            if (slot.inventory instanceof Inventory) {
-                int index = slot.getIndex();
-                if (index >= 0 && index <= 35 && slot.hasStack()) {
-                    if (blacklist.isBlacklisted(slot.getStack().getItem())) continue;
-                    client.interactionManager.clickSlot(
-                            handler.syncId,
-                            slot.id,
+        for (Slot slot : menu.slots) {
+            if (slot.container == inventory) {
+                int index = slot.getContainerSlot();
+                if (index >= 0 && index <= 35 && slot.hasItem()) {
+                    if (blacklist.isBlacklisted(slot.getItem().getItem())) continue;
+                    client.gameMode.handleInventoryMouseClick(
+                            menu.containerId,
+                            slot.index,
                             0,
-                            ClickType.QUICK_MOVE,
+                            ContainerInput.QUICK_MOVE,
                             player
                     );
                 }
