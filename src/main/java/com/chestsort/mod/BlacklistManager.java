@@ -3,10 +3,10 @@ package com.chestsort.mod;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.Minecraft;
 import net.minecraft.item.Item;
 import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
+import net.minecraft.util.ResourceLocation;
 
 import java.io.File;
 import java.io.FileReader;
@@ -24,7 +24,7 @@ public class BlacklistManager {
     private static final Type TYPE = new TypeToken<Set<String>>() {}.getType();
     private static final BlacklistManager INSTANCE = new BlacklistManager();
 
-    private final Set<Identifier> blacklistedItems = new HashSet<>();
+    private final Set<ResourceLocation> blacklistedItems = new HashSet<>();
     private boolean loaded = false;
 
     public static BlacklistManager getInstance() {
@@ -33,7 +33,7 @@ public class BlacklistManager {
     }
 
     private Path getFile() {
-        return MinecraftClient.getInstance().runDirectory.toPath()
+        return Minecraft.getInstance().runDirectory.toPath()
                 .resolve("config").resolve("chestsort-blacklist.json");
     }
 
@@ -45,7 +45,7 @@ public class BlacklistManager {
                 Set<String> ids = GSON.fromJson(reader, TYPE);
                 if (ids != null) {
                     for (String id : ids) {
-                        Identifier parsed = Identifier.tryParse(id);
+                        ResourceLocation parsed = ResourceLocation.tryParse(id);
                         if (parsed != null) {
                             blacklistedItems.add(parsed);
                         }
@@ -63,7 +63,7 @@ public class BlacklistManager {
             File file = getFile().toFile();
             file.getParentFile().mkdirs();
             Set<String> ids = new HashSet<>();
-            for (Identifier id : blacklistedItems) {
+            for (ResourceLocation id : blacklistedItems) {
                 ids.add(id.toString());
             }
             try (Writer writer = new FileWriter(file)) {
@@ -79,7 +79,7 @@ public class BlacklistManager {
     }
 
     public void toggle(Item item) {
-        Identifier id = Registries.ITEM.getId(item);
+        ResourceLocation id = Registries.ITEM.getId(item);
         if (blacklistedItems.contains(id)) {
             blacklistedItems.remove(id);
         } else {
@@ -88,7 +88,7 @@ public class BlacklistManager {
         save();
     }
 
-    public Set<Identifier> getBlacklisted() {
+    public Set<ResourceLocation> getBlacklisted() {
         return new HashSet<>(blacklistedItems);
     }
 }
