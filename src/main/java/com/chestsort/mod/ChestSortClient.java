@@ -201,7 +201,7 @@ public class ChestSortClient implements ClientModInitializer {
                 int index = slot.getContainerSlot();
                 if (index >= 0 && index <= 35 && slot.hasItem()) {
                     if (blacklist.isBlacklisted(slot.getItem().getItem())) continue;
-                    client.gameMode.handleInventoryMouseClick(
+                    client.gameMode.handleContainerInput(
                             menu.containerId,
                             slot.index,
                             0,
