@@ -94,7 +94,7 @@ public class ChestSortClient implements ClientModInitializer {
                         state = SortState.IDLE;
                         pendingChests.clear();
                         if (client.player != null) {
-                            client.player.displayClientMessage(Component.literal("§aChestSort: Inventory empty, done!"), true);
+                            client.player.sendOverlayMessage(Component.literal("§aChestSort: Inventory empty, done!");
                         }
                         return;
                     }
@@ -107,7 +107,7 @@ public class ChestSortClient implements ClientModInitializer {
                     } else {
                         state = SortState.IDLE;
                         if (client.player != null) {
-                            client.player.displayClientMessage(Component.literal("§eChestSort: No more chests nearby, done!"), true);
+                            client.player.sendOverlayMessage(Component.literal("§eChestSort: No more chests nearby, done!");
                         }
                     }
                 }
@@ -128,22 +128,22 @@ public class ChestSortClient implements ClientModInitializer {
         if (client.player == null || client.level == null) return;
 
         if (state != SortState.IDLE) {
-            client.player.displayClientMessage(Component.literal("§eChestSort: Already sorting, please wait."), true);
+            client.player.sendOverlayMessage(Component.literal("§eChestSort: Already sorting, please wait.");
             return;
         }
 
         if (!hasNonBlacklistedItems(client)) {
-            client.player.displayClientMessage(Component.literal("§eChestSort: Nothing to sort!"), true);
+            client.player.sendOverlayMessage(Component.literal("§eChestSort: Nothing to sort!");
             return;
         }
 
         List<BlockPos> chests = findNearbyChests(client, 5);
         if (chests.isEmpty()) {
-            client.player.displayClientMessage(Component.literal("§eChestSort: No chests found nearby."), true);
+            client.player.sendOverlayMessage(Component.literal("§eChestSort: No chests found nearby.");
             return;
         }
 
-        client.player.displayClientMessage(Component.literal("§aChestSort: Found " + chests.size() + " chest(s), sorting..."), true);
+        client.player.sendOverlayMessage(Component.literal("§aChestSort: Found " + chests.size() + " chest(s), sorting...");
         pendingChests = new ArrayList<>(chests);
 
         BlockPos first = pendingChests.remove(0);
