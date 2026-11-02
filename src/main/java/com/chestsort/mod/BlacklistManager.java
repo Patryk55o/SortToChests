@@ -4,9 +4,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import net.minecraft.client.Minecraft;
-import net.minecraft.item.Item;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.Item;
 
 import java.io.File;
 import java.io.FileReader;
@@ -24,7 +24,7 @@ public class BlacklistManager {
     private static final Type TYPE = new TypeToken<Set<String>>() {}.getType();
     private static final BlacklistManager INSTANCE = new BlacklistManager();
 
-    private final Set<ResourceLocation> blacklistedItems = new HashSet<>();
+    private final Set<Identifier> blacklistedItems = new HashSet<>();
     private boolean loaded = false;
 
     public static BlacklistManager getInstance() {
@@ -33,7 +33,7 @@ public class BlacklistManager {
     }
 
     private Path getFile() {
-        return Minecraft.getInstance().runDirectory.toPath()
+        return Minecraft.getInstance().gameDirectory.toPath()
                 .resolve("config").resolve("chestsort-blacklist.json");
     }
 
@@ -45,7 +45,7 @@ public class BlacklistManager {
                 Set<String> ids = GSON.fromJson(reader, TYPE);
                 if (ids != null) {
                     for (String id : ids) {
-                        ResourceLocation parsed = ResourceLocation.tryParse(id);
+                        Identifier parsed = Identifier.tryParse(id);
                         if (parsed != null) {
                             blacklistedItems.add(parsed);
                         }
@@ -63,7 +63,7 @@ public class BlacklistManager {
             File file = getFile().toFile();
             file.getParentFile().mkdirs();
             Set<String> ids = new HashSet<>();
-            for (ResourceLocation id : blacklistedItems) {
+            for (Identifier id : blacklistedItems) {
                 ids.add(id.toString());
             }
             try (Writer writer = new FileWriter(file)) {
@@ -75,11 +75,11 @@ public class BlacklistManager {
     }
 
     public boolean isBlacklisted(Item item) {
-        return blacklistedItems.contains(Registries.ITEM.getId(item));
+        return blacklistedItems.contains(BuiltInRegistries.ITEM.getKey(item));
     }
 
     public void toggle(Item item) {
-        ResourceLocation id = Registries.ITEM.getId(item);
+        Identifier id = BuiltInRegistries.ITEM.getKey(item);
         if (blacklistedItems.contains(id)) {
             blacklistedItems.remove(id);
         } else {
@@ -88,7 +88,7 @@ public class BlacklistManager {
         save();
     }
 
-    public Set<ResourceLocation> getBlacklisted() {
+    public Set<Identifier> getBlacklisted() {
         return new HashSet<>(blacklistedItems);
     }
 }
