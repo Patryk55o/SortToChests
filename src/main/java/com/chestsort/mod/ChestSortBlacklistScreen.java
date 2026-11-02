@@ -1,16 +1,14 @@
 package com.chestsort.mod;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gl.RenderPipelines;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.entity.player.Inventory;
-import net.minecraft.item.ItemStack;
-import net.minecraft.text.Component;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,72 +30,72 @@ public class ChestSortBlacklistScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        this.addDrawableChild(ButtonWidget.builder(Component.translatable("gui.done"), button -> this.close())
-                .dimensions(this.width / 2 - 100, this.height - 40, 200, 20)
+        this.addRenderableWidget(Button.builder(Component.translatable("gui.done"), button -> this.onClose())
+                .bounds(this.width / 2 - 100, this.height - 40, 200, 20)
                 .build());
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
+        super.extractRenderState(graphics, mouseX, mouseY, delta);
 
-        context.drawCenteredComponentWithShadow(this.textRenderer, this.title, this.width / 2, 20, 0xFFFFFF);
-        context.drawCenteredComponentWithShadow(this.textRenderer, Component.translatable("screen.chestsort.blacklist.hint"), this.width / 2, 35, 0xAAAAAA);
+        graphics.text(this.font, this.title, this.width / 2, 20, 0xFFFFFFFF, true);
+        graphics.text(this.font, Component.translatable("screen.chestsort.blacklist.hint"),
+                this.width / 2, 35, 0xFFAAAAAA, true);
 
         int gridWidth = COLUMNS * SLOT_SIZE;
         int gridStartX = (this.width - gridWidth) / 2;
         int gridStartY = this.height / 2 - (INV_ROWS * SLOT_SIZE) / 2 + 10;
 
-        Inventory inv = Minecraft.getInstance().player.getInventory();
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null) return;
+        Inventory inventory = client.player.getInventory();
+
         for (int i = 0; i < 36; i++) {
             int col = i % COLUMNS;
             int row = i / COLUMNS;
             int x = gridStartX + col * SLOT_SIZE;
             int y = gridStartY + row * SLOT_SIZE;
 
-            context.drawGuiComponenture(RenderPipelines.GUI_TEXTURED, ResourceLocation.of("container/slot"), x, y, 18, 18);
+            graphics.fill(x, y, x + SLOT_SIZE, y + SLOT_SIZE, 0xFF373737);
+            graphics.fill(x + 1, y + 1, x + SLOT_SIZE - 1, y + SLOT_SIZE - 1, 0xFF8B8B8B);
 
-            ItemStack stack = inv.getStack(i);
+            ItemStack stack = inventory.getItem(i);
             if (!stack.isEmpty()) {
-                context.drawItem(stack, x + 1, y + 1);
-                context.drawStackOverlay(this.textRenderer, stack, x + 1, y + 1);
+                graphics.item(stack, x + 1, y + 1);
+                graphics.itemDecorations(this.font, stack, x + 1, y + 1);
 
                 if (blacklist.isBlacklisted(stack.getItem())) {
-                    context.fill(x + 1, y + 1, x + 17, y + 17, 0x80FF0000);
+                    graphics.fill(x + 1, y + 1, x + 17, y + 17, 0x80FF0000);
                 }
             }
-        }
 
-        for (int i = 0; i < 36; i++) {
-            int col = i % COLUMNS;
-            int row = i / COLUMNS;
-            int x = gridStartX + col * SLOT_SIZE;
-            int y = gridStartY + row * SLOT_SIZE;
-
-            if (mouseX >= x && mouseX < x + SLOT_SIZE && mouseY >= y && mouseY < y + SLOT_SIZE) {
-                ItemStack stack = inv.getStack(i);
-                if (!stack.isEmpty()) {
-                    List<Component> tooltip = new ArrayList<>();
-                    tooltip.add(stack.getName());
-                    if (blacklist.isBlacklisted(stack.getItem())) {
-                        tooltip.add(Component.translatable("screen.chestsort.blacklisted").formatted(Formatting.RED));
-                    } else {
-                        tooltip.add(Component.translatable("screen.chestsort.click_to_blacklist").formatted(Formatting.GRAY));
-                    }
-                    context.drawTooltip(this.textRenderer, tooltip, mouseX, mouseY);
+            if (mouseX >= x && mouseX < x + SLOT_SIZE && mouseY >= y && mouseY < y + SLOT_SIZE
+                    && !stack.isEmpty()) {
+                List<Component> tooltip = new ArrayList<>();
+                tooltip.add(stack.getHoverName());
+                if (blacklist.isBlacklisted(stack.getItem())) {
+                    tooltip.add(Component.translatable("screen.chestsort.blacklisted").withStyle(ChatFormatting.RED));
+                } else {
+                    tooltip.add(Component.translatable("screen.chestsort.click_to_blacklist").withStyle(ChatFormatting.GRAY));
                 }
+                graphics.setTooltipForNextFrame(this.font, tooltip, mouseX, mouseY);
             }
         }
     }
 
     @Override
-    public boolean mouseClicked(Click click, boolean isUsed) {
-        if (super.mouseClicked(click, isUsed)) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (super.mouseClicked(event, doubleClick)) {
             return true;
         }
 
-        double mouseX = click.x();
-        double mouseY = click.y();
+        if (event.button() != 1) {
+            return false;
+        }
+
+        double mouseX = event.x();
+        double mouseY = event.y();
 
         int gridWidth = COLUMNS * SLOT_SIZE;
         int startX = (this.width - gridWidth) / 2;
@@ -110,8 +108,10 @@ public class ChestSortBlacklistScreen extends Screen {
             int y = startY + row * SLOT_SIZE;
 
             if (mouseX >= x && mouseX < x + SLOT_SIZE && mouseY >= y && mouseY < y + SLOT_SIZE) {
-                Inventory inv = Minecraft.getInstance().player.getInventory();
-                ItemStack stack = inv.getStack(i);
+                Minecraft client = Minecraft.getInstance();
+                if (client.player == null) return false;
+                Inventory inventory = client.player.getInventory();
+                ItemStack stack = inventory.getItem(i);
                 if (!stack.isEmpty()) {
                     blacklist.toggle(stack.getItem());
                     return true;
@@ -123,7 +123,7 @@ public class ChestSortBlacklistScreen extends Screen {
     }
 
     @Override
-    public void close() {
-        this.client.setScreen(parent);
+    public void onClose() {
+        Minecraft.getInstance().gui.setScreen(parent);
     }
 }
